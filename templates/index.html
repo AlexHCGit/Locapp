@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mapa de Técnicos en Intervención</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            height: 70vh;
+            width: 100%;
+            min-height: 300px;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+        .content {
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        form {
+            flex: 1 1 300px;
+            max-width: 400px;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        table {
+            flex: 1 1 300px;
+            border-collapse: collapse;
+            width: 100%;
+            max-width: 400px;
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+        .hidden {
+            display: none;
+        }
+        @keyframes cambioEstado {
+            0%   { background-color: white; }
+            50%  { background-color: lightblue; }
+            100% { background-color: inherit; }
+        }
+
+        .animarCambio {
+            animation: cambioEstado 1s ease;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Mapa de Técnicos en Intervención</h2>
+
+<div id="map"></div>
+
+<div class="content">
+
+    <!-- Formulario -->
+    <form id="formulario">
+        <h3>Añadir Nueva Intervención:</h3>
+
+        Técnico:
+        <select id="tecnico" required>
+            <option value="">Selecciona un técnico</option>
+            <option value="Pascual de la Vega">Pascual de la vega</option>
+            <option value="Álex Hernández">Álex Hernández</option>
+            <option value="Marc Alcalà">Marc Alcalà</option>
+            <option value="Raúl Borjabad">Raúl Borjabad</option>
+            <option value="Jordi Bolaños">Jordi Bolaños</option>
+            <option value="Emiliano Ruisi">Emiliano Ruisi</option>
+            <option value="Jeroen Simoens">Jeroen Simoens</option>
+        </select>
+
+        Tarea:
+        <select id="tarea" required onchange="comprobarTarea()">
+            <option value="">Selecciona una tarea</option>
+            <option value="Emergencia">Emergencia</option>
+            <option value="No Emergencia">No Emergencia</option>
+            <option value="PMP">PMP</option>
+            <option value="Upgrade / STB">Upgrade / STB</option>
+            <option value="HWHD">HWHD</option>
+            <option value="No disponible">No disponible</option>
+            <option value="Vacaciones/Festivo">Vacaciones/Festivo</option>
+        </select>
+
+        <div id="hospitalCampo">
+            Hospital:
+            <select id="hospital">
+                <option value="">Selecciona un hospital</option>
+            </select>
+        </div>
+
+        <div id="maquinaCampo">
+            Máquina:
+            <input type="text" id="maquina">
+        </div>
+
+        <button type="submit">Registrar Intervención</button>
+    </form>
+
+    <!-- Tabla técnicos disponibles -->
+    <div>
+        <h3 id="tituloTecnicos">Técnicos Disponibles (0)</h3>
+        <table id="tablaTecnicos">
+            <thead>
+                <tr><th>Técnico</th></tr>
+            </thead>
+            <tbody>
+                <!-- Se rellena por JS -->
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+// Inicializar mapa
+var map = L.map('map').setView([41.6, 2.0], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// Definir iconos de colores
+function crearIcono(color) {
+    return new L.Icon({
+        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+}
+
+const iconos = {
+    rojo: crearIcono('red'),
+    naranja: crearIcono('orange'),
+    azul: crearIcono('blue'),
+    amarillo: crearIcono('yellow'),
+    violeta: crearIcono('violet'),
+    gris: crearIcono('grey')
+};
+
+// Lista de hospitales
+const hospitales = {
+    "Hosp. Duran i Reynalds": { lat: 41.345, lon: 2.111 },
+    "Hosp. Vall d'Hebron": { lat: 41.428, lon: 2.140 },
+    "Hosp. Germans Trias i Pujol": { lat: 41.481, lon: 2.237 },
+    "Hosp. Josep Trueta": { lat: 41.997, lon: 2.819 },
+    "Hosp del Mar": { lat: 41.384, lon: 2.194 },
+    "Hospital Sant Pau": { lat: 41.415, lon: 2.174 },
+    "Hospital Sant Joan de Reus": { lat: 41.145, lon: 1.123 },
+    "Hospital de la Santa Creu de Tortosa": { lat: 40.827, lon: 0.509 },
+    "Hosp. Clinic de Barcelona": { lat: 41.389, lon: 2.152 },
+    "Hosp. Quiron Barcelona": { lat: 41.415, lon: 2.138 },
+    "Hospital CIMA": { lat: 41.390, lon: 2.122 },
+    "Fundacion IMOR": { lat: 41.402, lon: 2.126 },
+    "Hosp. Teknon": { lat: 41.407, lon: 2.127 },
+    "Hosp. Arnau de Vilanova": { lat: 41.626, lon: 0.613 },
+    "Hosp. de Granollers": { lat: 41.614, lon: 2.295 },
+    "Consorci Sanitari de Terrassa": { lat: 41.557, lon: 2.052 },
+    "Hosp. Juaneda Miramar de Mallorca": { lat: 39.584, lon: 2.630 },
+    "Hosp. Mateu Orfila de Menorca": { lat: 39.881, lon: 4.252 },
+    "Hosp. Can Misses de Ibiza": { lat: 38.916, lon: 1.418 }
+};
+
+// Rellenar select hospitales
+const hospitalSelect = document.getElementById('hospital');
+for (const nombre in hospitales) {
+    const option = document.createElement('option');
+    option.value = nombre;
+    option.textContent = nombre;
+    hospitalSelect.appendChild(option);
+}
+
+const todosTecnicos = ["Pascual de la Vega", "Álex Hernández", "Marc Alcalà", "Raúl Borjabad", "Jordi Bolaños", "Emiliano Ruisi", "Jeroen Simoens"];
+
+function actualizarTecnicosDisponibles(data) {
+    const ocupados = data.map(item => item.tecnico);
+    const disponiblesEspeciales = data.filter(item => 
+        item.trabajo === "HWHD" || item.trabajo === "No disponible" || item.trabajo === "Vacaciones/Festivo"
+    ).map(item => ({ tecnico: item.tecnico, trabajo: item.trabajo, id: item.id }));
+
+    const tabla = document.getElementById('tablaTecnicos').getElementsByTagName('tbody')[0];
+    const titulo = document.getElementById('tituloTecnicos');
+
+    tabla.innerHTML = '';
+
+    let libresContador = 0;
+
+    todosTecnicos.forEach(tecnico => {
+        const fila = tabla.insertRow();
+        const celda = fila.insertCell(0);
+        fila.classList.add('animarCambio');
+
+        const especial = disponiblesEspeciales.find(t => t.tecnico === tecnico);
+
+        if (especial) {
+            if (especial.trabajo === "HWHD") {
+                celda.style.backgroundColor = "violet";
+            } else {
+                celda.style.backgroundColor = "grey";
+            }
+            celda.innerHTML = `
+                ${tecnico} 
+                <span style="color:red; cursor:pointer; font-weight:bold; margin-left:10px;" title="Eliminar" onclick="eliminarIntervencion(${especial.id})">❌</span>
+            `;
+        } else if (!ocupados.includes(tecnico)) {
+            celda.style.backgroundColor = "lightgreen"; // disponible normal
+            celda.textContent = tecnico;
+            libresContador++;
+        } else {
+            celda.style.backgroundColor = "transparent"; // ocupado normal
+            celda.textContent = tecnico;
+        }
+    });
+
+    // Actualizar número de técnicos libres
+    titulo.innerHTML = `Técnicos Disponibles (${libresContador})`;
+}
+
+
+function obtenerIconoPorTrabajo(trabajo) {
+    trabajo = trabajo.toLowerCase();
+    if (trabajo.includes('no emergencia')) return iconos.naranja;
+    if (trabajo.includes('emergencia')) return iconos.rojo;
+    if (trabajo.includes('upgrade') || trabajo.includes('stb')) return iconos.azul;
+    if (trabajo.includes('pmp')) return iconos.amarillo;
+    if (trabajo.includes('hwhd')) return iconos.violeta;
+    if (trabajo.includes('no disponible') || trabajo.includes('vacaciones')) return iconos.gris;
+    return iconos.azul;
+}
+
+function cargarIntervenciones() {
+    fetch('/intervenciones')
+    .then(response => response.json())
+    .then(data => {
+        map.eachLayer(function (layer) {
+            if (layer instanceof L.Marker) {
+                map.removeLayer(layer);
+            }
+        });
+        data.forEach(item => {
+            if (!["HWHD", "No disponible", "Vacaciones/Festivo"].includes(item.trabajo)) {
+                L.marker([item.lat, item.lon], { icon: obtenerIconoPorTrabajo(item.trabajo) })
+                .addTo(map)
+                .bindPopup(`
+                    <b>${item.tecnico}</b><br>
+                    ${item.hospital}<br>
+                    ${item.maquina}<br>
+                    ${item.trabajo}<br>
+                    <b>ID: ${item.id}</b><br><br>
+                    <button onclick="eliminarIntervencion(${item.id})">Eliminar</button>
+                `);
+            }
+        });
+        actualizarTecnicosDisponibles(data);
+    });
+}
+
+function eliminarIntervencion(id) {
+    if (confirm('¿Seguro que quieres eliminar esta intervención?')) {
+        fetch(`/finalizar/${id}`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            alert('Intervención eliminada');
+            cargarIntervenciones();
+        });
+    }
+}
+
+// Cargar al inicio
+cargarIntervenciones();
+setInterval(cargarIntervenciones, 30000);
+
+// Enviar formulario
+document.getElementById('formulario').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var tecnico = document.getElementById('tecnico').value;
+    var tareaSeleccionada = document.getElementById('tarea').value;
+    var hospitalNombre = document.getElementById('hospital').value;
+    var maquinaNombre = document.getElementById('maquina').value;
+
+    if (!tecnico || !tareaSeleccionada) {
+        alert("Debes seleccionar Técnico y Tarea.");
+        return;
+    }
+
+    if (["HWHD", "No disponible", "Vacaciones/Festivo"].includes(tareaSeleccionada)) {
+        hospitalNombre = "Hosp. Clinic de Barcelona";
+        maquinaNombre = "-";
+    } else {
+        if (!hospitalNombre || !maquinaNombre) {
+            alert("Debes seleccionar hospital y máquina para esta tarea.");
+            return;
+        }
+    }
+
+    var coords = hospitales[hospitalNombre];
+
+    var datos = {
+        tecnico: tecnico,
+        hospital: hospitalNombre,
+        lat: coords.lat,
+        lon: coords.lon,
+        maquina: maquinaNombre,
+        trabajo: tareaSeleccionada
+    };
+
+    fetch('/nueva', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert('Intervención registrada');
+        cargarIntervenciones();
+        document.getElementById('formulario').reset();
+        comprobarTarea(); // ocultar campos si es necesario
+    });
+});
+
+// Ocultar hospital/maquina según tarea
+function comprobarTarea() {
+    var tarea = document.getElementById('tarea').value;
+    if (["HWHD", "No disponible", "Vacaciones/Festivo"].includes(tarea)) {
+        document.getElementById('hospitalCampo').classList.add('hidden');
+        document.getElementById('maquinaCampo').classList.add('hidden');
+    } else {
+        document.getElementById('hospitalCampo').classList.remove('hidden');
+        document.getElementById('maquinaCampo').classList.remove('hidden');
+    }
+}
+</script>
+
+</body>
+</html>
