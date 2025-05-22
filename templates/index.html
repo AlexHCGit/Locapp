@@ -90,13 +90,14 @@
         Técnico:
         <select id="tecnico" required>
             <option value="">Selecciona un técnico</option>
-            <option value="Pascual de la Vega">Pascual de la vega</option>
+            <option value="Pascual de la Vega">Pascual de la Vega</option>
             <option value="Álex Hernández">Álex Hernández</option>
             <option value="Marc Alcalà">Marc Alcalà</option>
             <option value="Raúl Borjabad">Raúl Borjabad</option>
             <option value="Jordi Bolaños">Jordi Bolaños</option>
             <option value="Emiliano Ruisi">Emiliano Ruisi</option>
             <option value="Jeroen Simoens">Jeroen Simoens</option>
+            <option value="Lluc Puig">Lluc Puig</option>
         </select>
 
         Tarea:
@@ -199,7 +200,7 @@ for (const nombre in hospitales) {
     hospitalSelect.appendChild(option);
 }
 
-const todosTecnicos = ["Pascual de la Vega", "Álex Hernández", "Marc Alcalà", "Raúl Borjabad", "Jordi Bolaños", "Emiliano Ruisi", "Jeroen Simoens"];
+const todosTecnicos = ["Pascual de la Vega", "Álex Hernández", "Marc Alcalà", "Raúl Borjabad", "Jordi Bolaños", "Emiliano Ruisi", "Jeroen Simoens", "Lluc Puig"];
 
 function actualizarTecnicosDisponibles(data) {
     const ocupados = data.map(item => item.tecnico);
