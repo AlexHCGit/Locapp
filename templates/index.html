@@ -262,28 +262,56 @@ function cargarIntervenciones() {
     fetch('/intervenciones')
     .then(response => response.json())
     .then(data => {
-        map.eachLayer(function (layer) {
+        // 1) Limpia marcadores viejos
+        map.eachLayer(layer => {
             if (layer instanceof L.Marker) {
                 map.removeLayer(layer);
             }
         });
+
+        // 2) Agrupa intervenciones por coordenada
+        const agrupadas = {};
         data.forEach(item => {
             if (!["HWHD", "No disponible", "Vacaciones/Festivo"].includes(item.trabajo)) {
-                L.marker([item.lat, item.lon], { icon: obtenerIconoPorTrabajo(item.trabajo) })
-                .addTo(map)
-                .bindPopup(`
-                    <b>${item.tecnico}</b><br>
-                    ${item.hospital}<br>
-                    ${item.maquina}<br>
-                    ${item.trabajo}<br>
-                    <b>ID: ${item.id}</b><br><br>
-                    <button onclick="eliminarIntervencion(${item.id})">Eliminar</button>
-                `);
+                const key = `${item.lat},${item.lon}`;
+                agrupadas[key] = agrupadas[key] || [];
+                agrupadas[key].push(item);
             }
         });
+
+        // 3) Crea un marcador por grupo
+        Object.entries(agrupadas).forEach(([coord, grupo]) => {
+            const [lat, lon] = coord.split(',').map(Number);
+
+            // Usa el color de la primera intervención del grupo
+            const icono = obtenerIconoPorTrabajo(grupo[0].trabajo);
+
+            // Genera el contenido del popup con todas las intervenciones
+            let popupHTML = '';
+            grupo.forEach(item => {
+                popupHTML += `
+                    <div style="margin-bottom:8px;">
+                        <b>${item.tecnico}</b><br>
+                        ${item.hospital}<br>
+                        ${item.maquina}<br>
+                        ${item.trabajo}<br>
+                        <b>ID: ${item.id}</b><br>
+                        <button onclick="eliminarIntervencion(${item.id})">Eliminar</button>
+                    </div>
+                    <hr>
+                `;
+            });
+
+            L.marker([lat, lon], { icon: icono })
+             .addTo(map)
+             .bindPopup(popupHTML);
+        });
+
+        // 4) Actualiza la tabla de técnicos
         actualizarTecnicosDisponibles(data);
     });
 }
+
 
 function eliminarIntervencion(id) {
     if (confirm('¿Seguro que quieres eliminar esta intervención?')) {
