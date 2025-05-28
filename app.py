@@ -32,9 +32,9 @@ class Intervencion(db.Model):
     trabajo = db.Column(db.String(100))
     estado = db.Column(db.String(20), default='activo')
 
-@app.before_first_request
-def create_tables():
+with app.app_context():
     db.create_all()
+
 
 @app.route('/')
 def home():
