@@ -3,8 +3,6 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 import os
-import psycopg2
-from urllib.parse import urlparse
 
 app = Flask(__name__)
 
@@ -16,17 +14,12 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # Configurar la base de datos
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
 if not DATABASE_URL:
     print("⚠️  DATABASE_URL no encontrada. Usando SQLite.")
 else:
     print(f"✅ Usando base de datos: {DATABASE_URL}")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///local.db'
-
-
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -41,10 +34,6 @@ class Intervencion(db.Model):
     maquina = db.Column(db.String(100))
     trabajo = db.Column(db.String(100))
     estado = db.Column(db.String(20), default='activo')
-
-with app.app_context():
-    db.create_all()
-
 
 @app.route('/')
 def home():
@@ -88,8 +77,13 @@ def obtener_intervenciones():
         } for i in activas
     ])
 
+# Solo crea las tablas si NO estamos en Heroku
 if __name__ == '__main__':
+    if not os.environ.get('IS_HEROKU'):
+        with app.app_context():
+            db.create_all()
     app.run(host='0.0.0.0', port=5000, debug=True)
+
 
 
 
