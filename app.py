@@ -3,6 +3,7 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 import os
+import psycopg2
 from urllib.parse import urlparse
 
 app = Flask(__name__)
