@@ -1,1 +1,1 @@
-web: gunicorn app:app
+web: gunicorn nuevo_app:app
